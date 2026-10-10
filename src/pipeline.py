@@ -106,6 +106,12 @@ def estimate_tilt(crop: np.ndarray) -> float:
 
 def analyze(image_bgr: np.ndarray) -> tuple[Result, np.ndarray]:
     """Главная функция: принимает BGR-изображение, возвращает (Result, annotated)."""
+    # privacy-стадия: лица/номера пикселизуются ДО обработки и показа (правила)
+    try:
+        from src import privacy
+        image_bgr, _ = privacy.sanitize(image_bgr)
+    except Exception:
+        pass
     annotated = image_bgr.copy()
     model = _load_model()
     res = model.predict(image_bgr, verbose=False, conf=0.35)[0]

@@ -19,7 +19,10 @@ from urllib.request import urlopen, Request
 API = "https://commons.wikimedia.org/w/api.php"
 UA = {"User-Agent": "LoadSafetyGate-hackathon/1.0 (educational)"}
 QUERIES = ["semi truck", "lorry truck", "cargo truck", "flatbed truck",
-           "truck trailer", "dump truck"]
+           "truck trailer", "dump truck", "box truck", "tipper truck",
+           "cement mixer truck", "container truck", "delivery truck",
+           "loaded flatbed truck", "garbage truck", "tank truck",
+           "logging truck", "heavy truck highway"]
 
 OUT_DIR = os.path.join(os.path.dirname(__file__), "images", "public")
 MANIFEST = os.path.join(os.path.dirname(__file__), "public_sources.csv")
