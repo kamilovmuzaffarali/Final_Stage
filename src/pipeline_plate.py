@@ -95,6 +95,21 @@ def analyze(image_bgr) -> tuple[Result, np.ndarray]:
     annotated = image_bgr.copy()
     r = det.predict(image_bgr, verbose=False, conf=DET_CONF_MIN)[0]
     if r.boxes is None or not len(r.boxes):
+        # Fallback: treat the whole image as a plate crop (user submitted close-up)
+        H, W = image_bgr.shape[:2]
+        ar = W / max(H, 1)
+        if 2.0 <= ar <= 7.0:        # plate-shaped aspect ratio → try OCR directly
+            text, ocr_conf = _recognize(image_bgr)
+            valid = bool(UZ_RE.match(text))
+            if ocr_conf >= OCR_CONF_MIN and valid:
+                decision, color = "READ", (0, 180, 0)
+                note = "Режим прямой вставки кропа номера."
+            else:
+                decision, color = "CANNOT-READ", (160, 160, 160)
+                note = "Не удалось прочитать — попробуйте более чёткое фото."
+            cv2.putText(annotated, text or "?", (10, H - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
+            return Result(decision, text, valid, ocr_conf, 0.0, None, note), annotated
         cv2.putText(annotated, "NO PLATE", (20, 40),
                     cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
         return Result("NO-PLATE", "", False, 0.0, 0.0, None,

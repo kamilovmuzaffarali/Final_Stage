@@ -1,34 +1,30 @@
-# данные (тяжёлое — не в git; источники в data/*/sources.csv + README)
-data/olx_raw/
-data/synth/
-data/synth_sample/
-data/*.jpg
-data/*.png
-data/*.db
-# примеры-превью оставляем? нет — храним только манифесты
 
+!data/samples/*.jpg
+# load-safety leftovers
+# os
+# python
+# данные (тяжёлое — не в git; источники в data/*/sources.csv + README)
 # модели/веса
+# примеры-превью оставляем? нет — храним только манифесты
+*.jpg
+*.onnx
+*.png
 *.pt
 *.pth
-*.onnx
-weights/
-
-# python
-__pycache__/
 *.pyc
-.venv/
-venv/
-
-# os
 .DS_Store
-
-# load-safety leftovers
-data/images/
+.venv/
+__pycache__/
 annotated.jpg
-
+data/*.db
+data/*.jpg
+data/*.png
 data/detect/
+data/images/
+data/olx_raw/
 data/real_crops/
+data/synth/
+data/synth_sample/
 runs/
-*.jpg
-*.png
-!data/samples/*.jpg
+venv/
+weights/

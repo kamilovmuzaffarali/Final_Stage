@@ -16,10 +16,24 @@ from __future__ import annotations
 import argparse, csv, os, random, string
 from PIL import Image, ImageDraw, ImageFont
 
+import os as _os
 LETTERS = "ABCDEFGHJKLMNPRSTUVXYZ"   # без I,O,Q (путаница с 1,0)
 DIGITS = "0123456789"
-FONT = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
 FONT_UZ = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
+_SUP = "/System/Library/Fonts/Supplemental/"
+# Много разных шрифтов -> OCR учит форму букв инвариантно к шрифту и
+# обобщается на реальный шрифт номеров (DIN — почти «номерной»).
+FONTS = [p for p in [
+    _SUP+"DIN Condensed Bold.ttf", _SUP+"DIN Alternate Bold.ttf",
+    _SUP+"Arial Bold.ttf", _SUP+"Arial Black.ttf", _SUP+"Arial Narrow Bold.ttf",
+    _SUP+"Tahoma Bold.ttf", _SUP+"Verdana Bold.ttf", _SUP+"Trebuchet MS Bold.ttf",
+    _SUP+"Impact.ttf",
+] if _os.path.exists(p)]
+_FW = [3, 3, 1, 1, 1, 1, 1, 1, 1][:len(FONTS)]
+
+
+def _pick_font():
+    return random.choices(FONTS, weights=_FW, k=1)[0]
 
 
 def plate_text() -> str:
@@ -61,8 +75,9 @@ def render(text: str, W=440, H=100) -> Image.Image:
     region = parts[0]
     rest = " ".join(parts[1:])
     area_w = strip_x
-    f_big = ImageFont.truetype(FONT, int(H * 0.62))
-    f_reg = ImageFont.truetype(FONT, int(H * 0.52))
+    fp = _pick_font()
+    f_big = ImageFont.truetype(fp, int(H * random.uniform(0.56, 0.66)))
+    f_reg = ImageFont.truetype(fp, int(H * 0.52))
     pad = int(W * 0.03)
     # регион
     rb = d.textbbox((0, 0), region, font=f_reg)
