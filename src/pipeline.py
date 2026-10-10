@@ -136,14 +136,14 @@ def analyze(image_bgr: np.ndarray) -> tuple[Result, np.ndarray]:
     else:
         checks.append(Check("Крен кузова", True, f"{tilt:+.1f}°", "ok"))
 
-    # --- заглушки под дообучаемую модель (честно помечены) ---
-    # Свес груза за габарит / незакреплённый груз / превышение высоты
-    # включаются после обучения сегментации груза (train/). Пока — pending.
-    checks.append(Check("Свес за габарит", True, "модель обучается", "ok"))
-    checks.append(Check("Крепление/дверь", True, "модель обучается", "ok"))
+    # Свес за габарит / высота — честно помечены как ROADMAP и НЕ влияют на
+    # решение. Zero-shot на грузе/колёсах ненадёжен (замерено) -> не выдаём
+    # фейковый «OK». Включим после обучения своих классов cargo/wheel (train/).
+    checks.append(Check("Свес за габарит", True, "не оценивается (roadmap)", "roadmap"))
+    checks.append(Check("Высота груза", True, "не оценивается (roadmap)", "roadmap"))
 
-    # --- итоговое решение ---
-    sev = [c.severity for c in checks]
+    # --- итоговое решение (только по измеренным чекам; roadmap игнорируем) ---
+    sev = [c.severity for c in checks if c.severity != "roadmap"]
     if "nogo" in sev:
         decision = "NO-GO"
         color = (0, 0, 255)
