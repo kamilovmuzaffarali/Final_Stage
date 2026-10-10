@@ -31,12 +31,12 @@ def _draw_tilted_box(angle_deg: float, size=(400, 300)):
 def test_tilt_detection():
     for truth in (-8, -4, 0, 5, 9):
         img = _draw_tilted_box(truth)
-        est = estimate_tilt(img)
+        est,_ = estimate_tilt(img)
         assert abs(est - truth) <= 3.0, f"angle {truth}: got {est}"
 
 
 if __name__ == "__main__":
     for truth in (-8, -4, 0, 5, 9):
-        est = estimate_tilt(_draw_tilted_box(truth))
+        est,_ = estimate_tilt(_draw_tilted_box(truth))
         print(f"truth={truth:+d}  est={est:+.1f}  err={abs(est-truth):.1f}")
     print("OK")

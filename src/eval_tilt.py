@@ -35,7 +35,7 @@ def measure(img):
         return None
     x1, y1, x2, y2 = box
     crop = img[max(0, y1):y2, max(0, x1):x2]
-    return estimate_tilt(crop)
+    t,_=estimate_tilt(crop); return t
 
 
 def main():

@@ -23,6 +23,7 @@ import numpy as np
 # Пороги (можно вынести в конфиг/обучить). Углы в градусах.
 TILT_WARN_DEG = 4.0      # крен кузова -> предупреждение
 TILT_NOGO_DEG = 7.0      # крен кузова -> запрет выезда
+TILT_CONF_MIN = 0.45     # ниже -> «не оценить» (плохой ракурс/качество)
 OVERHANG_WARN = 0.08     # доля вылета груза за габарит кузова (ширина)
 
 # Классы COCO, которые считаем «грузовиком» на старте (до своей модели)
@@ -81,30 +82,69 @@ def _biggest_truck_box(res) -> tuple | None:
     return None
 
 
+_world = None
+
+
+def _trailer_box(image_bgr):
+    """Тугой бокс кузова/прицепа через YOLO-World (lazy). None если не найден уверенно."""
+    global _world
+    try:
+        if _world is None:
+            from ultralytics import YOLO
+            _world = YOLO("yolov8s-world.pt")
+            _world.set_classes(["truck trailer", "truck cargo bed",
+                                "dump truck bed", "box truck body"])
+        r = _world.predict(image_bgr, verbose=False, conf=0.25)[0]
+        if r.boxes is None or not len(r.boxes):
+            return None
+        confs = r.boxes.conf.cpu().numpy()
+        xyxy = r.boxes.xyxy.cpu().numpy()
+        i = int(confs.argmax())
+        if confs[i] < 0.35:
+            return None
+        return tuple(xyxy[i].astype(int))
+    except Exception:
+        return None
+
+
 def estimate_tilt(crop: np.ndarray) -> float:
     """Оценка крена кузова: угол доминантных ~горизонтальных линий кузова
     относительно горизонта (Canny + HoughLinesP + медиана углов)."""
     if crop.size == 0:
-        return 0.0
+        return 0.0, 0.0
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
     edges = cv2.Canny(gray, 50, 150)
-    # длинные линии кузова (борт/крыша) — надёжнее, чем все подряд
+    # длинные почти-горизонтальные линии кузова (борта/крыша/низ)
     lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=80,
                             minLineLength=int(crop.shape[1] * 0.5), maxLineGap=25)
     if lines is None:
-        return 0.0
-    cand = []
+        return 0.0, 0.0
+    midy = crop.shape[0] / 2
+    upper, lower = [], []           # верхняя и нижняя половина кузова
     for x1, y1, x2, y2 in lines.reshape(-1, 4):
         ang = math.degrees(math.atan2(y2 - y1, x2 - x1))
-        if abs(ang) < 25:  # почти горизонтальные
-            cand.append((ang, math.hypot(x2 - x1, y2 - y1)))
-    if not cand:
-        return 0.0
-    cand.sort(key=lambda c: -c[1])           # самые длинные вперёд
-    top = cand[:max(3, len(cand) // 4)]      # топ-линии по длине
-    w = sum(L for _, L in top)
-    return float(sum(a * L for a, L in top) / w)  # длинно-взвешенное среднее
+        if abs(ang) >= 25:
+            continue
+        L = math.hypot(x2 - x1, y2 - y1)
+        (upper if (y1 + y2) / 2 < midy else lower).append((ang, L))
+
+    def _dom(cands):
+        if not cands:
+            return None
+        cands.sort(key=lambda c: -c[1])
+        top = cands[:max(2, len(cands) // 3)]
+        w = sum(L for _, L in top)
+        return sum(a * L for a, L in top) / w
+
+    au, al = _dom(upper), _dom(lower)
+    # Уверенность = наличие длинных кромок борта (структуры). Обе кромки -> высокая,
+    # одна -> средняя, нет -> «не оценить». Усреднение верх+низ гасит перспективу.
+    if au is not None and al is not None:
+        return float((au + al) / 2), 1.0
+    if au is not None or al is not None:
+        return float(au if au is not None else al), 0.6
+    return 0.0, 0.0
 
 
 def analyze(image_bgr: np.ndarray) -> tuple[Result, np.ndarray]:
@@ -132,18 +172,28 @@ def analyze(image_bgr: np.ndarray) -> tuple[Result, np.ndarray]:
                     cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
         return result, annotated
 
-    x1, y1, x2, y2 = box
+    # для крена берём ТУГОЙ бокс прицепа (YOLO-World) — без кабины/фона/перспективы;
+    # если прицеп не найден, падаем на бокс грузовика (YOLOv8n)
+    tbox = _trailer_box(image_bgr)
+    x1, y1, x2, y2 = tbox if tbox is not None else box
     crop = image_bgr[max(0, y1):y2, max(0, x1):x2]
-    tilt = estimate_tilt(crop)
+    tilt, conf = estimate_tilt(crop)
 
-    # --- проверка крена ---
-    a = abs(tilt)
-    if a >= TILT_NOGO_DEG:
-        checks.append(Check("Крен кузова", False, f"{tilt:+.1f}°", "nogo"))
-    elif a >= TILT_WARN_DEG:
-        checks.append(Check("Крен кузова", False, f"{tilt:+.1f}°", "warn"))
+    # гейт уверенности: на косом ракурсе/плохом кадре не угадываем, а честно
+    # отвечаем «не оценить» (как требует план: cannot assess)
+    if conf < TILT_CONF_MIN:
+        checks.append(Check("Крен кузова", True,
+                            "не оценить (ракурс/качество)", "cannot"))
+        cannot_roll = True
     else:
-        checks.append(Check("Крен кузова", True, f"{tilt:+.1f}°", "ok"))
+        cannot_roll = False
+        a = abs(tilt)
+        if a >= TILT_NOGO_DEG:
+            checks.append(Check("Крен кузова", False, f"{tilt:+.1f}°", "nogo"))
+        elif a >= TILT_WARN_DEG:
+            checks.append(Check("Крен кузова", False, f"{tilt:+.1f}°", "warn"))
+        else:
+            checks.append(Check("Крен кузова", True, f"{tilt:+.1f}°", "ok"))
 
     # Свес за габарит / высота — честно помечены как ROADMAP и НЕ влияют на
     # решение. Zero-shot на грузе/колёсах ненадёжен (замерено) -> не выдаём
@@ -151,31 +201,35 @@ def analyze(image_bgr: np.ndarray) -> tuple[Result, np.ndarray]:
     checks.append(Check("Свес за габарит", True, "не оценивается (roadmap)", "roadmap"))
     checks.append(Check("Высота груза", True, "не оценивается (roadmap)", "roadmap"))
 
-    # --- итоговое решение (только по измеренным чекам; roadmap игнорируем) ---
-    sev = [c.severity for c in checks if c.severity != "roadmap"]
-    if "nogo" in sev:
-        decision = "NO-GO"
-        color = (0, 0, 255)
-    elif "warn" in sev:
-        decision = "WARN"
-        color = (0, 165, 255)
+    # --- итоговое решение ---
+    note = ""
+    if cannot_roll:
+        decision = "CANNOT-ASSESS"
+        color = (160, 160, 160)
+        note = "Крен не оценить: снимите фуру сзади/сбоку, кузов целиком в кадре."
     else:
-        decision = "GO"
-        color = (0, 180, 0)
+        sev = [c.severity for c in checks if c.severity not in ("roadmap", "cannot")]
+        if "nogo" in sev:
+            decision, color = "NO-GO", (0, 0, 255)
+        elif "warn" in sev:
+            decision, color = "WARN", (0, 165, 255)
+        else:
+            decision, color = "GO", (0, 180, 0)
 
     # аннотация
     cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 3)
-    cv2.putText(annotated, f"{decision}  tilt={tilt:+.1f}", (x1, max(30, y1 - 10)),
+    label = decision if cannot_roll else f"{decision}  tilt={tilt:+.1f}"
+    cv2.putText(annotated, label, (x1, max(30, y1 - 10)),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
-    # горизонт-референс (линия под углом крена через центр бокса)
-    cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
-    L = (x2 - x1) // 2
-    dx = int(L * math.cos(math.radians(tilt)))
-    dy = int(L * math.sin(math.radians(tilt)))
-    cv2.line(annotated, (cx - dx, cy - dy), (cx + dx, cy + dy), color, 2)
+    if not cannot_roll:
+        cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+        L = (x2 - x1) // 2
+        dx = int(L * math.cos(math.radians(tilt)))
+        dy = int(L * math.sin(math.radians(tilt)))
+        cv2.line(annotated, (cx - dx, cy - dy), (cx + dx, cy + dy), color, 2)
 
     result = Result(decision=decision, tilt_deg=tilt, checks=checks,
-                    truck_found=True)
+                    truck_found=True, note=note)
     return result, annotated
 
 
