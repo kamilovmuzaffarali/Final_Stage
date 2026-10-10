@@ -1,0 +1,9 @@
+# Авто-деплой на Render при пуше в main (Blueprint).
+services:
+  - type: web
+    name: load-safety-gate
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    healthCheckPath: /health

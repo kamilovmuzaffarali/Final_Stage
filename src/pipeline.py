@@ -94,7 +94,7 @@ def estimate_tilt(crop: np.ndarray) -> float:
     if lines is None:
         return 0.0
     angles = []
-    for x1, y1, x2, y2 in lines[:, 0]:
+    for x1, y1, x2, y2 in lines.reshape(-1, 4):
         ang = math.degrees(math.atan2(y2 - y1, x2 - x1))
         # интересуют почти горизонтальные линии кузова (|angle| < 30)
         if abs(ang) < 30:
