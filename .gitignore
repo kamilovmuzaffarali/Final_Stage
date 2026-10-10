@@ -1,0 +1,23 @@
+# данные (тяжёлое — не в git; источники в data/*/sources.csv + README)
+data/olx_raw/
+data/synth/
+data/synth_sample/
+data/*.jpg
+data/*.png
+data/*.db
+# примеры-превью оставляем? нет — храним только манифесты
+
+# модели/веса
+*.pt
+*.pth
+*.onnx
+weights/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# os
+.DS_Store
