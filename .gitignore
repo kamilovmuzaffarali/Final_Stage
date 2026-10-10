@@ -21,3 +21,7 @@ venv/
 
 # os
 .DS_Store
+
+# load-safety leftovers
+data/images/
+annotated.jpg
