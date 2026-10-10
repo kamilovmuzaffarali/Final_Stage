@@ -24,3 +24,7 @@
 - Воспроизвести: `python data/fetch_public_trucks.py --n 40`.
 
 > Каждый добавленный источник фиксируем строкой: что, откуда, лицензия.
+
+## Демо-сэмплы (web/samples)
+- normal.jpg — производное от truck_005 (Wikimedia Commons, CC BY-SA, см. public_sources.csv).
+- tilted.jpg — СИНТЕТИЧЕСКИЙ тест-наклон 12° того же фото (аугментация, задекларировано).

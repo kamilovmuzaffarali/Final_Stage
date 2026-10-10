@@ -15,11 +15,15 @@ import cv2
 import numpy as np
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(_ROOT)
 from src import pipeline  # noqa: E402
 
 app = FastAPI(title="Load Safety Gate", version="0.1")
+app.mount("/samples", StaticFiles(directory=os.path.join(_ROOT, "web", "samples")),
+          name="samples")
 
 
 @app.get("/", response_class=HTMLResponse)
