@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Load Safety Gate</title>
+<style>
+  :root{--bg:#0f1115;--card:#171a21;--ink:#e8eaed;--mut:#9aa0a6;--go:#1db954;--warn:#ffa726;--nogo:#ff5252;}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:760px;margin:0 auto;padding:24px}
+  h1{font-size:22px;margin:0 0 4px} .sub{color:var(--mut);margin:0 0 20px}
+  .card{background:var(--card);border-radius:14px;padding:18px;margin-bottom:16px}
+  input[type=file]{width:100%;padding:12px;background:#0d0f13;border:1px dashed #30343c;border-radius:10px;color:var(--ink)}
+  button{margin-top:12px;width:100%;padding:14px;border:0;border-radius:10px;background:#2f6fed;color:#fff;font-size:16px;font-weight:600}
+  button:disabled{opacity:.5}
+  .verdict{font-size:30px;font-weight:800;text-align:center;padding:14px;border-radius:12px;margin:8px 0}
+  .GO{background:rgba(29,185,84,.15);color:var(--go)} .WARN{background:rgba(255,167,38,.15);color:var(--warn)}
+  .NOGO,.NODATA{background:rgba(255,82,82,.15);color:var(--nogo)}
+  table{width:100%;border-collapse:collapse;margin-top:8px} td{padding:8px;border-bottom:1px solid #262b33}
+  .pill{padding:2px 8px;border-radius:20px;font-size:12px;font-weight:700}
+  .ok{background:rgba(29,185,84,.2);color:var(--go)} .warn{background:rgba(255,167,38,.2);color:var(--warn)} .nogo{background:rgba(255,82,82,.2);color:var(--nogo)}
+  img{width:100%;border-radius:12px;margin-top:10px}
+  .mut{color:var(--mut);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🚚 Pre-Departure Load Safety Gate</h1>
+  <p class="sub">Фото загруженного грузовика → решение о выезде: крен, свес, крепление.</p>
+  <div class="card">
+    <input id="file" type="file" accept="image/*">
+    <button id="go" onclick="run()">Проверить загрузку</button>
+  </div>
+  <div id="out"></div>
+</div>
+<script>
+async function run(){
+  const f=document.getElementById('file').files[0];
+  if(!f){alert('Выбери фото');return;}
+  const b=document.getElementById('go'); b.disabled=true; b.textContent='Анализ…';
+  const fd=new FormData(); fd.append('file',f);
+  try{
+    const r=await fetch('/analyze',{method:'POST',body:fd});
+    const d=await r.json();
+    render(d);
+  }catch(e){ document.getElementById('out').innerHTML='<div class="card">Ошибка: '+e+'</div>'; }
+  b.disabled=false; b.textContent='Проверить загрузку';
+}
+function render(d){
+  if(d.error){document.getElementById('out').innerHTML='<div class="card">Ошибка: '+d.error+'</div>';return;}
+  const cls=(d.decision||'').replace('-','');
+  let rows='';
+  (d.checks||[]).forEach(c=>{ rows+=`<tr><td>${c.name}</td><td>${c.value}</td><td style="text-align:right"><span class="pill ${c.severity}">${c.severity.toUpperCase()}</span></td></tr>`; });
+  document.getElementById('out').innerHTML=`
+    <div class="card">
+      <div class="verdict ${cls}">${d.decision}</div>
+      <div class="mut">Крен кузова: <b>${d.tilt_deg}°</b> ${d.note?('· '+d.note):''}</div>
+      <table>${rows}</table>
+    </div>
+    ${d.annotated_image?`<div class="card"><img src="${d.annotated_image}"></div>`:''}
+  `;
+}
+</script>
+</body>
+</html>

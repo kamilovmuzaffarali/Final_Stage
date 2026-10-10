@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# ML artefacts / weights / runs
+*.pt
+runs/
+data/images/
+data/labels/
+annotated.jpg
+
+# OS
+.DS_Store
