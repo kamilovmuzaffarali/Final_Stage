@@ -89,19 +89,22 @@ def estimate_tilt(crop: np.ndarray) -> float:
     gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
     gray = cv2.GaussianBlur(gray, (5, 5), 0)
     edges = cv2.Canny(gray, 50, 150)
-    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=60,
-                            minLineLength=crop.shape[1] * 0.3, maxLineGap=20)
+    # длинные линии кузова (борт/крыша) — надёжнее, чем все подряд
+    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=80,
+                            minLineLength=int(crop.shape[1] * 0.5), maxLineGap=25)
     if lines is None:
         return 0.0
-    angles = []
+    cand = []
     for x1, y1, x2, y2 in lines.reshape(-1, 4):
         ang = math.degrees(math.atan2(y2 - y1, x2 - x1))
-        # интересуют почти горизонтальные линии кузова (|angle| < 30)
-        if abs(ang) < 30:
-            angles.append(ang)
-    if not angles:
+        if abs(ang) < 25:  # почти горизонтальные
+            cand.append((ang, math.hypot(x2 - x1, y2 - y1)))
+    if not cand:
         return 0.0
-    return float(np.median(angles))
+    cand.sort(key=lambda c: -c[1])           # самые длинные вперёд
+    top = cand[:max(3, len(cand) // 4)]      # топ-линии по длине
+    w = sum(L for _, L in top)
+    return float(sum(a * L for a, L in top) / w)  # длинно-взвешенное среднее
 
 
 def analyze(image_bgr: np.ndarray) -> tuple[Result, np.ndarray]:
