@@ -14,10 +14,10 @@ from urllib.request import urlopen, Request
 
 API = "https://commons.wikimedia.org/w/api.php"
 UA = {"User-Agent": "LoadSafetyGate-hackathon/1.0 (educational)"}
-QUERIES = ["overturned truck", "truck rollover", "tipped over truck",
-           "truck on slope", "leaning truck", "truck accident tilted",
-           "lorry overturned", "truck crash on side", "truck stuck tilted",
-           "dump truck tipping"]
+QUERIES = ["truck on slope", "truck on steep hill", "dump truck tipping",
+           "dump truck unloading", "tipper truck dumping", "truck uphill loaded",
+           "truck leaning", "truck in ditch", "truck tilted load",
+           "construction truck slope", "mining truck incline", "truck ramp loading"]
 
 OUT_DIR = os.path.join(os.path.dirname(__file__), "images", "tilted")
 MANIFEST = os.path.join(os.path.dirname(__file__), "tilted_sources.csv")

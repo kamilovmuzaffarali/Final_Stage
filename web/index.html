@@ -22,6 +22,11 @@
   .roadmap{background:rgba(154,160,166,.18);color:var(--mut)}
   img{width:100%;border-radius:12px;margin-top:10px}
   .mut{color:var(--mut);font-size:13px}
+  .examples{display:flex;gap:10px}
+  .examples figure{margin:0;flex:1;cursor:pointer;background:#0d0f13;border:1px solid #262b33;border-radius:10px;overflow:hidden;transition:border-color .15s}
+  .examples figure:hover{border-color:#2f6fed}
+  .examples img{width:100%;height:92px;object-fit:cover;margin:0;border-radius:0;display:block}
+  .examples figcaption{padding:7px 8px;font-size:13px;font-weight:600;text-align:center}
 </style>
 </head>
 <body>
@@ -31,11 +36,17 @@
   <div class="card">
     <input id="file" type="file" accept="image/*">
     <button id="go" onclick="run()">Проверить загрузку</button>
-    <div style="display:flex;gap:8px;margin-top:10px">
-      <button style="background:#2a2f3a" onclick="runSample('/samples/normal.jpg')">Пример: норма</button>
-      <button style="background:#2a2f3a" onclick="runSample('/samples/tilted.jpg')">Пример: перекос</button>
+    <div class="mut" style="margin:12px 0 6px">Или выбери пример (гоняет реальный пайплайн, не кэш):</div>
+    <div class="examples">
+      <figure onclick="runSample('/samples/normal.jpg')">
+        <img src="/samples/normal.jpg" alt="норма">
+        <figcaption>Норма</figcaption>
+      </figure>
+      <figure onclick="runSample('/samples/tilted.jpg')">
+        <img src="/samples/tilted.jpg" alt="перекос">
+        <figcaption>Перекос <span class="mut">(синт. тест 10°)</span></figcaption>
+      </figure>
     </div>
-    <div class="mut" style="margin-top:6px">Примеры гоняют реальный пайплайн (не кэш). «Перекос» — синтетический тест-наклон 12°.</div>
   </div>
   <div id="out"></div>
 </div>
@@ -65,7 +76,7 @@ function render(d){
   if(d.error){document.getElementById('out').innerHTML='<div class="card">Ошибка: '+d.error+'</div>';return;}
   const cls=(d.decision||'').replace('-','');
   let rows='';
-  (d.checks||[]).forEach(c=>{ rows+=`<tr><td>${c.name}</td><td>${c.value}</td><td style="text-align:right"><span class="pill ${c.severity}">${c.severity.toUpperCase()}</span></td></tr>`; });
+  (d.checks||[]).filter(c=>c.severity!=='roadmap').forEach(c=>{ rows+=`<tr><td>${c.name}</td><td>${c.value}</td><td style="text-align:right"><span class="pill ${c.severity}">${c.severity.toUpperCase()}</span></td></tr>`; });
   document.getElementById('out').innerHTML=`
     <div class="card">
       <div class="verdict ${cls}">${d.decision}</div>
