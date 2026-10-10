@@ -38,6 +38,37 @@ def health():
     return {"status": "ok"}
 
 
+_EXAMPLES_CACHE = None
+
+
+def _run_example(path):
+    img = cv2.imread(path)
+    if img is None:
+        return None
+    result, annotated = pipeline.analyze(img)
+    ok, buf = cv2.imencode(".jpg", annotated)
+    b64 = base64.b64encode(buf.tobytes()).decode()
+    out = result.to_dict()
+    out["annotated_image"] = f"data:image/jpeg;base64,{b64}"
+    return out
+
+
+@app.get("/examples")
+def examples():
+    """Готовые примеры-выводы (норма/перекос) — считаются один раз реальным пайплайном."""
+    global _EXAMPLES_CACHE
+    if _EXAMPLES_CACHE is None:
+        sdir = os.path.join(_ROOT, "web", "samples")
+        _EXAMPLES_CACHE = []
+        for name, title in (("normal.jpg", "Норма"),
+                            ("tilted.jpg", "Перекос (синт. тест 10°)")):
+            r = _run_example(os.path.join(sdir, name))
+            if r:
+                r["title"] = title
+                _EXAMPLES_CACHE.append(r)
+    return JSONResponse(_EXAMPLES_CACHE)
+
+
 @app.post("/analyze")
 async def analyze(file: UploadFile = File(...)):
     data = await file.read()

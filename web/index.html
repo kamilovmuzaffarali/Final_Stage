@@ -22,11 +22,13 @@
   .roadmap{background:rgba(154,160,166,.18);color:var(--mut)}
   img{width:100%;border-radius:12px;margin-top:10px}
   .mut{color:var(--mut);font-size:13px}
-  .examples{display:flex;gap:10px}
-  .examples figure{margin:0;flex:1;cursor:pointer;background:#0d0f13;border:1px solid #262b33;border-radius:10px;overflow:hidden;transition:border-color .15s}
-  .examples figure:hover{border-color:#2f6fed}
-  .examples img{width:100%;height:92px;object-fit:cover;margin:0;border-radius:0;display:block}
-  .examples figcaption{padding:7px 8px;font-size:13px;font-weight:600;text-align:center}
+  .examples{display:flex;gap:12px;flex-wrap:wrap}
+  .ex{flex:1;min-width:260px;background:var(--card);border-radius:12px;overflow:hidden;border-left:5px solid #444}
+  .ex.GO{border-left-color:var(--go)} .ex.WARN{border-left-color:var(--warn)} .ex.NOGO,.ex.NODATA,.ex.CANNOTASSESS{border-left-color:var(--nogo)}
+  .ex img{width:100%;margin:0;border-radius:0;display:block}
+  .ex .exhead{display:flex;justify-content:space-between;align-items:center;padding:10px 12px}
+  .ex .exv{font-weight:800;font-size:18px}
+  .ex.GO .exv{color:var(--go)} .ex.WARN .exv{color:var(--warn)} .ex.NOGO .exv,.ex.NODATA .exv,.ex.CANNOTASSESS .exv{color:var(--nogo)}
 </style>
 </head>
 <body>
@@ -36,19 +38,10 @@
   <div class="card">
     <input id="file" type="file" accept="image/*">
     <button id="go" onclick="run()">Проверить загрузку</button>
-    <div class="mut" style="margin:12px 0 6px">Или выбери пример (гоняет реальный пайплайн, не кэш):</div>
-    <div class="examples">
-      <figure onclick="runSample('/samples/normal.jpg')">
-        <img src="/samples/normal.jpg" alt="норма">
-        <figcaption>Норма</figcaption>
-      </figure>
-      <figure onclick="runSample('/samples/tilted.jpg')">
-        <img src="/samples/tilted.jpg" alt="перекос">
-        <figcaption>Перекос <span class="mut">(синт. тест 10°)</span></figcaption>
-      </figure>
-    </div>
   </div>
   <div id="out"></div>
+  <div class="mut" style="margin:18px 0 8px">Примеры (посчитаны реальным пайплайном):</div>
+  <div id="examples" class="examples"></div>
 </div>
 <script>
 async function analyzeBlob(blob){
@@ -67,11 +60,20 @@ async function run(){
   catch(e){ document.getElementById('out').innerHTML='<div class="card">Ошибка: '+e+'</div>'; }
   b.disabled=false; b.textContent='Проверить загрузку';
 }
-async function runSample(url){
-  document.getElementById('out').innerHTML='<div class="card mut">Анализ примера…</div>';
-  try{ const blob=await (await fetch(url)).blob(); await analyzeBlob(blob); }
-  catch(e){ document.getElementById('out').innerHTML='<div class="card">Ошибка: '+e+'</div>'; }
+async function loadExamples(){
+  try{
+    const list=await (await fetch('/examples')).json();
+    const box=document.getElementById('examples');
+    box.innerHTML=list.map(d=>{
+      const cls=(d.decision||'').replace('-','');
+      return `<div class="ex ${cls}">
+        <img src="${d.annotated_image}" alt="">
+        <div class="exhead"><span>${d.title||''}</span><span class="exv">${d.decision}</span></div>
+      </div>`;
+    }).join('');
+  }catch(e){ /* молча */ }
 }
+loadExamples();
 function render(d){
   if(d.error){document.getElementById('out').innerHTML='<div class="card">Ошибка: '+d.error+'</div>';return;}
   const cls=(d.decision||'').replace('-','');
