@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+python-multipart
+opencv-python-headless
+numpy<2
+pillow
+torch
+ultralytics
+curl_cffi
+pyyaml

@@ -25,3 +25,10 @@ venv/
 # load-safety leftovers
 data/images/
 annotated.jpg
+
+data/detect/
+data/real_crops/
+runs/
+*.jpg
+*.png
+!data/samples/*.jpg

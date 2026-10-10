@@ -29,25 +29,56 @@ def plate_text() -> str:
     return f"{rr} {''.join(random.choices(DIGITS,k=3))} {''.join(random.choices(LETTERS,k=3))}"
 
 
+def _flag_strip(d, x0, W, H):
+    """Правая полоса: флаг UZ (голубой/белый/зелёный с красными линиями) + 'UZ'."""
+    bw = W - x0
+    # три горизонтальные полосы флага в верхней части
+    fy = int(H * 0.18); fh = int(H * 0.44)
+    band_h = fh // 3
+    cols = [(0, 153, 219), (255, 255, 255), (30, 160, 70)]  # голубой/белый/зелёный
+    for i, c in enumerate(cols):
+        d.rectangle([x0 + 4, fy + i*band_h, W - 4, fy + (i+1)*band_h], fill=c)
+    # тонкие красные разделители
+    for i in (1, 2):
+        d.line([x0 + 4, fy + i*band_h, W - 4, fy + i*band_h], fill=(200, 40, 40), width=1)
+    fuz = ImageFont.truetype(FONT_UZ, int(H * 0.26))
+    tb = d.textbbox((0, 0), "UZ", font=fuz)
+    d.text((x0 + (bw - (tb[2]-tb[0]))//2 - 2, int(H*0.64)), "UZ", font=fuz, fill=(0, 0, 0))
+
+
 def render(text: str, W=440, H=100) -> Image.Image:
-    img = Image.new("RGB", (W, H), "white")
+    # лёгкая вариация тона пластины (не всегда чисто белая)
+    base = random.choice([(255, 255, 255), (250, 250, 248), (245, 246, 243)])
+    img = Image.new("RGB", (W, H), base)
     d = ImageDraw.Draw(img)
-    d.rectangle([0, 0, W - 1, H - 1], outline="black", width=3)
-    # левая синяя полоса "UZ"
-    band = 52
-    d.rectangle([3, 3, band, H - 4], fill=(0, 51, 160))
-    fuz = ImageFont.truetype(FONT_UZ, 26)
-    d.text((10, 14), "UZ", font=fuz, fill="white")
-    fflag = ImageFont.truetype(FONT_UZ, 16)
-    d.text((14, 54), "●", font=fflag, fill=(0, 180, 0))
-    # основной текст (без пробелов-разделителей рисуем с разрядкой)
-    f = ImageFont.truetype(FONT, 58)
-    core = text.replace(" ", "  ")
-    bb = d.textbbox((0, 0), core, font=f)
-    tw, th = bb[2] - bb[0], bb[3] - bb[1]
-    x = band + ( (W - band) - tw )//2 - bb[0]
-    y = (H - th)//2 - bb[1]
-    d.text((x, y), core, font=f, fill="black")
+    d.rectangle([0, 0, W - 1, H - 1], outline=(10, 10, 10), width=3)
+    # правый блок флага/UZ (~14% ширины)
+    strip_x = int(W * 0.86)
+    d.line([strip_x, 6, strip_x, H - 6], fill=(60, 60, 60), width=1)
+    _flag_strip(d, strip_x, W, H)
+    # основной номер: регион слева чуть меньше, затем группа крупно
+    parts = text.split(" ")
+    region = parts[0]
+    rest = " ".join(parts[1:])
+    area_w = strip_x
+    f_big = ImageFont.truetype(FONT, int(H * 0.62))
+    f_reg = ImageFont.truetype(FONT, int(H * 0.52))
+    pad = int(W * 0.03)
+    # регион
+    rb = d.textbbox((0, 0), region, font=f_reg)
+    ry = (H - (rb[3]-rb[1]))//2 - rb[1]
+    d.text((pad, ry), region, font=f_reg, fill=(10, 10, 10))
+    x_after = pad + (rb[2]-rb[0]) + int(W*0.02)
+    # точка-разделитель как на реальных
+    d.ellipse([x_after, H//2-3, x_after+6, H//2+3], fill=(10, 10, 10))
+    x_after += int(W*0.02)
+    # основная группа (с разрядкой), центрируем в оставшемся месте
+    core = rest.replace(" ", " ")
+    cb = d.textbbox((0, 0), core, font=f_big)
+    cw, ch = cb[2]-cb[0], cb[3]-cb[1]
+    cx = x_after + max(0, ((area_w - x_after) - cw)//2) - cb[0]
+    cy = (H - ch)//2 - cb[1]
+    d.text((cx, cy), core, font=f_big, fill=(10, 10, 10))
     return img
 
 

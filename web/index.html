@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PlateVision — приём авто по номеру (UZ)</title>
+<style>
+  :root{--bg:#0e1014;--card:#171a21;--card2:#1d212a;--ink:#e8eaed;--mut:#9aa0a6;
+        --line:#262b33;--ok:#1db954;--no:#ff5252;--brand:#2f6fed;}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:system-ui,Segoe UI,Roboto,sans-serif;line-height:1.45}
+  .wrap{max-width:820px;margin:0 auto;padding:20px 18px 48px}
+  header{display:flex;align-items:center;gap:12px;margin:4px 0 6px}
+  .logo{width:42px;height:42px;border-radius:11px;background:linear-gradient(135deg,#2f6fed,#1db954);
+        display:flex;align-items:center;justify-content:center;font-size:22px}
+  h1{font-size:20px;margin:0}.sub{color:var(--mut);margin:2px 0 18px;font-size:14px}
+  .sec-t{font-size:13px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em;margin:22px 0 10px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .kpi{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .kpi .n{font-size:26px;font-weight:800}.kpi .l{font-size:11px;color:var(--mut);text-transform:uppercase}
+  .kpi.ok .n{color:var(--ok)} .kpi.no .n{color:var(--no)}
+  input[type=file]{width:100%;padding:12px;background:#0d0f13;border:1px dashed #30343c;border-radius:10px;color:var(--ink)}
+  button{margin-top:12px;width:100%;padding:14px;border:0;border-radius:10px;background:var(--brand);
+         color:#fff;font-size:16px;font-weight:600;cursor:pointer}button:disabled{opacity:.5}
+  .ticket{border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:16px}
+  .tk-top{display:flex;justify-content:space-between;padding:12px 16px;background:var(--card2);font-size:13px;color:var(--mut)}
+  .tk-no{font-weight:700;color:var(--ink)}
+  .plate{font-size:34px;font-weight:800;text-align:center;letter-spacing:3px;padding:16px;font-family:ui-monospace,Menlo,monospace}
+  .READ .plate{background:rgba(29,185,84,.14);color:var(--ok)}
+  .CANNOTREAD .plate,.NOPLATE .plate{background:rgba(255,82,82,.12);color:var(--no)}
+  .tk-body{padding:12px 16px}.mut{color:var(--mut);font-size:13px}
+  .tk-body img{width:100%;border-radius:10px;margin-top:10px}
+  table{width:100%;border-collapse:collapse} td{padding:8px 4px;border-bottom:1px solid var(--line);font-size:13px}
+  .badge{padding:2px 8px;border-radius:6px;font-size:11px;font-weight:800}
+  .badge.READ{background:rgba(29,185,84,.18);color:var(--ok)}
+  .badge.CANNOTREAD,.badge.NOPLATE{background:rgba(255,82,82,.18);color:var(--no)}
+  .plate-mono{font-family:ui-monospace,Menlo,monospace;letter-spacing:1px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><div class="logo">🚗</div>
+    <div><h1>PlateVision</h1>
+    <div class="sub" style="margin:0">Приём авто по номеру — фото → номер (UZ) → талон. Локальная модель, обучена на своём датасете.</div></div>
+  </header>
+
+  <div class="sec-t">Смена сегодня</div>
+  <div class="kpis">
+    <div class="kpi"><div class="n" id="k-total">—</div><div class="l">Сканов</div></div>
+    <div class="kpi ok"><div class="n" id="k-read">—</div><div class="l">Распознано</div></div>
+    <div class="kpi no"><div class="n" id="k-no">—</div><div class="l">Не прочитано</div></div>
+  </div>
+
+  <div class="sec-t">Новый приём</div>
+  <div class="card">
+    <input id="file" type="file" accept="image/*">
+    <button id="go" onclick="run()">Распознать номер и выдать талон</button>
+  </div>
+  <div id="out"></div>
+
+  <div class="sec-t">Журнал смены</div>
+  <div class="card" style="padding:4px 14px">
+    <table><tbody id="logbody"><tr><td class="mut" style="padding:14px 4px">Пока нет сканов.</td></tr></tbody></table>
+  </div>
+</div>
+<script>
+const VN={'READ':'НОМЕР РАСПОЗНАН','CANNOT-READ':'НЕ ПРОЧИТАН','NO-PLATE':'НОМЕР НЕ НАЙДЕН'};
+const cls=d=>(d||'').replace(/-/g,'');
+async function refresh(){
+  try{const s=await(await fetch('/stats')).json();
+    k('k-total',s.total);k('k-read',s.READ);k('k-no',(s['CANNOT-READ']||0)+(s['NO-PLATE']||0));}catch(e){}
+  try{const rows=await(await fetch('/log?limit=15')).json();
+    const b=document.getElementById('logbody'); if(!rows.length)return;
+    b.innerHTML=rows.map(r=>`<tr><td class="mut">${(r.ts||'').replace('T',' ').slice(5,16)}</td>
+      <td class="tk-no">${r.ticket||''}</td>
+      <td class="plate-mono">${r.plate||'—'}</td>
+      <td style="text-align:right"><span class="badge ${cls(r.decision)}">${r.decision}</span></td></tr>`).join('');
+  }catch(e){}
+}
+function k(id,v){document.getElementById(id).textContent=(v==null?'0':v);}
+async function run(){
+  const f=document.getElementById('file').files[0]; if(!f){alert('Выбери фото');return;}
+  const b=document.getElementById('go');b.disabled=true;b.textContent='Анализ…';
+  try{const fd=new FormData();fd.append('file',f,'photo.jpg');
+    const d=await(await fetch('/analyze',{method:'POST',body:fd})).json();render(d);refresh();}
+  catch(e){document.getElementById('out').innerHTML='<div class="card">Ошибка: '+e+'</div>';}
+  b.disabled=false;b.textContent='Распознать номер и выдать талон';
+}
+function render(d){
+  const o=document.getElementById('out');
+  if(d.error){o.innerHTML='<div class="card">Ошибка: '+d.error+'</div>';return;}
+  const c=cls(d.decision),ts=(d.ts||'').replace('T',' ').slice(0,16);
+  o.innerHTML=`<div class="ticket ${c}">
+    <div class="tk-top"><span class="tk-no">${d.ticket||'талон'}</span><span>${ts}</span></div>
+    <div class="plate">${d.text||'—'}</div>
+    <div class="tk-body">
+      <div class="mut">${VN[d.decision]||''} · формат UZ: ${d.valid_format?'да':'нет'} · увер. OCR ${d.ocr_conf} · детект ${d.det_conf} ${d.note?('· '+d.note):''}</div>
+      ${d.annotated_image?`<img src="${d.annotated_image}">`:''}
+    </div></div>`;
+}
+refresh();
+</script>
+</body>
+</html>
