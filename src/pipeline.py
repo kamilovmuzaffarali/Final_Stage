@@ -26,6 +26,21 @@ TILT_NOGO_DEG = 7.0      # крен кузова -> запрет выезда
 TILT_CONF_MIN = 0.45     # ниже -> «не оценить» (плохой ракурс/качество)
 OVERHANG_WARN = 0.08     # доля вылета груза за габарит кузова (ширина)
 
+# Пороги можно переопределить в config.yaml (без правки кода)
+try:
+    import os as _os
+    import yaml as _yaml
+    _cfg_path = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), "config.yaml")
+    if _os.path.exists(_cfg_path):
+        with open(_cfg_path) as _f:
+            _c = _yaml.safe_load(_f) or {}
+        _t = _c.get("tilt", {})
+        TILT_WARN_DEG = float(_t.get("warn_deg", TILT_WARN_DEG))
+        TILT_NOGO_DEG = float(_t.get("nogo_deg", TILT_NOGO_DEG))
+        TILT_CONF_MIN = float(_t.get("conf_min", TILT_CONF_MIN))
+except Exception:
+    pass
+
 # Классы COCO, которые считаем «грузовиком» на старте (до своей модели)
 COCO_TRUCK = {7}          # 'truck'
 COCO_VEHICLE_FALLBACK = {7, 5, 2}  # truck, bus, car — если trucks не нашлись
