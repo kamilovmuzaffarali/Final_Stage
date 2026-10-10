@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Load Safety Gate — защита</title>
+<style>
+  :root{--bg:#0e1014;--ink:#e8eaed;--mut:#9aa0a6;--go:#1db954;--nogo:#ff5252;--brand:#2f6fed;}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:system-ui,Segoe UI,Roboto,sans-serif}
+  .deck{height:100%;display:flex;align-items:center;justify-content:center}
+  .slide{display:none;max-width:900px;width:100%;padding:48px 44px}
+  .slide.on{display:block;animation:f .25s ease}
+  @keyframes f{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+  .tag{color:var(--brand);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:13px}
+  h1{font-size:40px;margin:10px 0 6px;line-height:1.1}
+  h2{font-size:30px;margin:10px 0 18px}
+  p,li{font-size:20px;color:#d4d7db;line-height:1.5}
+  li{margin:8px 0} ul{padding-left:22px}
+  .big{display:flex;gap:18px;flex-wrap:wrap;margin:18px 0}
+  .m{background:#171a21;border:1px solid #262b33;border-radius:14px;padding:18px 22px;flex:1;min-width:150px}
+  .m .n{font-size:34px;font-weight:800} .m .l{color:var(--mut);font-size:14px;margin-top:4px}
+  .go{color:var(--go)} .nogo{color:var(--nogo)} .br{color:var(--brand)}
+  .note{color:var(--mut);font-size:15px;margin-top:18px}
+  .nav{position:fixed;bottom:16px;right:20px;color:var(--mut);font-size:14px}
+  a{color:var(--brand)}
+  kbd{background:#262b33;border-radius:6px;padding:1px 7px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <section class="slide on">
+    <div class="tag">Pre-Departure Load Safety Gate</div>
+    <h1>Ворота безопасности загрузки</h1>
+    <p>Одно фото фуры на выезде → решение о выпуске за 1–2 секунды.<br>
+    Измеряемо. С талоном. С журналом смены.</p>
+    <div class="note">Computer Vision · демо: loadsafety.astrotms.com</div>
+  </section>
+
+  <section class="slide">
+    <div class="tag">Проблема</div>
+    <h2>Неправильная загрузка стоит дорого</h2>
+    <ul>
+      <li>Несимметричная / перегруженная укладка → смещение груза, опрокидывания, потеря груза, штрафы, ДТП.</li>
+      <li>Сейчас контроль — <b>на глаз</b> (субъективно, нигде не фиксируется) <b>или никак</b>.</li>
+      <li>Нет объективной отсечки на воротах и нет истории для разбора.</li>
+    </ul>
+    <p class="note">Пользователь: выпускающий / диспетчер / весовщик на выезде с территории.</p>
+  </section>
+
+  <section class="slide">
+    <div class="tag">Решение</div>
+    <h2>Фото → талон GO / NO-GO</h2>
+    <ul>
+      <li>Водитель на воротах делает 1 фото.</li>
+      <li>Система выдаёт <span class="go">ВЫПУСК РАЗРЕШЁН</span> / ПРОВЕРИТЬ / <span class="nogo">ВЫЕЗД ЗАПРЕЩЁН</span> с измеренным креном.</li>
+      <li>Каждый осмотр → <b>журнал смены + счётчики</b>. Рабочий инструмент, а не демо алгоритма.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <div class="tag">Демо</div>
+    <h2>Живьём с телефона жюри</h2>
+    <p><b>loadsafety.astrotms.com</b></p>
+    <ul>
+      <li>Дашборд смены: осмотров / выпущено / задержано.</li>
+      <li>Фото нормы → <span class="go">GO</span>. Фото перекоса → <span class="nogo">NO-GO</span>, красная линия наклона.</li>
+      <li>Осмотр тут же падает в журнал с номером талона.</li>
+    </ul>
+  </section>
+
+  <section class="slide">
+    <div class="tag">Технология — это система, не промпт</div>
+    <h2>YOLO × 2 + геометрия + правила</h2>
+    <ul>
+      <li><b>YOLOv8n</b> → детекция грузовика; <b>YOLO-World</b> → тугой бокс кузова (zero-shot).</li>
+      <li><b>OpenCV-геометрия</b> крена (Canny + HoughLinesP, усреднение борта гасит перспективу) → пороги GO/WARN/NO-GO.</li>
+      <li>Плохой кадр → честное <b>«не оценить»</b>, а не ложный вердикт. LLM в ядре нет.</li>
+    </ul>
+    <div class="big">
+      <div class="m"><div class="n br">3.70°</div><div class="l">MAE крена (n=83)</div></div>
+      <div class="m"><div class="n br">34 FPS</div><div class="l">на CPU, без GPU</div></div>
+      <div class="m"><div class="n br">2</div><div class="l">разных детектора</div></div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="tag">Бизнес и ROI</div>
+    <h2>Кто платит и за счёт чего окупается</h2>
+    <ul>
+      <li><b>Платит:</b> автопарк / логистика / терминал. B2B: подписка за ворота или плата за осмотр.</li>
+      <li><b>Заменяем:</b> субъективный ручной осмотр → измеряемая отсечка + журнал для аудита.</li>
+    </ul>
+    <div class="big">
+      <div class="m"><div class="n">~$5 000</div><div class="l">цена 1 инцидента (модельно)</div></div>
+      <div class="m"><div class="n">$20–40</div><div class="l">инфра/мес (1 CPU)</div></div>
+      <div class="m"><div class="n go">1-й мес</div><div class="l">payback при 1 предотвращ.</div></div>
+    </div>
+    <p class="note">Допущения явные, калибруются в пилоте — не выдаём за факт.</p>
+  </section>
+
+  <section class="slide">
+    <div class="tag">Пилот и дальше</div>
+    <h2>3 месяца до рабочей отсечки</h2>
+    <ul>
+      <li><b>Мес 1:</b> камера на воротах, сбор своего датасета (их траки, их ракурс).</li>
+      <li><b>Мес 2:</b> дообучение детектора, калибровка порогов под их груз/ПДД.</li>
+      <li><b>Мес 3:</b> модули свес/высота (сейчас roadmap), интеграция журнала с весовой/TMS.</li>
+    </ul>
+    <p class="note">Vision: «AI-копилот ворот автопарка» — загрузка, крепление, высота, негабарит, видео-поток.</p>
+  </section>
+
+</div>
+<div class="nav"><span id="pg">1</span> / <span id="total">7</span> &nbsp; <kbd>←</kbd> <kbd>→</kbd></div>
+<script>
+  const s=[...document.querySelectorAll('.slide')]; let i=0;
+  document.getElementById('total').textContent=s.length;
+  function show(n){i=Math.max(0,Math.min(s.length-1,n));
+    s.forEach((e,k)=>e.classList.toggle('on',k===i));
+    document.getElementById('pg').textContent=i+1;}
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key===' ')show(i+1);
+    if(e.key==='ArrowLeft')show(i-1);});
+  document.getElementById('deck').addEventListener('click',()=>show(i+1));
+</script>
+</body>
+</html>

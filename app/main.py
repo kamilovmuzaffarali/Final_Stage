@@ -20,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(_ROOT)
 from src import pipeline  # noqa: E402
+from src import journal  # noqa: E402
 
 app = FastAPI(title="Load Safety Gate", version="0.1")
 app.mount("/samples", StaticFiles(directory=os.path.join(_ROOT, "web", "samples")),
@@ -29,6 +30,13 @@ app.mount("/samples", StaticFiles(directory=os.path.join(_ROOT, "web", "samples"
 @app.get("/", response_class=HTMLResponse)
 def index():
     path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "web", "index.html")
+    with open(path, encoding="utf-8") as f:
+        return f.read()
+
+
+@app.get("/deck", response_class=HTMLResponse)
+def deck():
+    path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "web", "deck.html")
     with open(path, encoding="utf-8") as f:
         return f.read()
 
@@ -69,6 +77,18 @@ def examples():
     return JSONResponse(_EXAMPLES_CACHE)
 
 
+@app.get("/log")
+def log(limit: int = 20):
+    """Журнал последних осмотров (операционная история смены)."""
+    return JSONResponse(journal.recent(limit))
+
+
+@app.get("/stats")
+def stats():
+    """Счётчики за сегодня: всего/GO/WARN/NO-GO/не оценить."""
+    return JSONResponse(journal.stats())
+
+
 @app.post("/analyze")
 async def analyze(file: UploadFile = File(...)):
     data = await file.read()
@@ -81,4 +101,12 @@ async def analyze(file: UploadFile = File(...)):
     b64 = base64.b64encode(buf.tobytes()).decode()
     out = result.to_dict()
     out["annotated_image"] = f"data:image/jpeg;base64,{b64}"
+    # записываем осмотр в журнал -> получаем номер талона (операционный слой)
+    try:
+        tk = journal.record(out["decision"], out.get("tilt_deg", 0.0),
+                            out.get("note", ""))
+        out["ticket"] = tk["ticket"]
+        out["ts"] = tk["ts"]
+    except Exception:
+        pass
     return JSONResponse(out)
